@@ -1,4 +1,9 @@
 
+helpers do
+  include Rack::Utils
+  alias_method :h, :escape_html
+end
+
 get '/' do
   erb :index, :layout => :default
 end
@@ -10,7 +15,7 @@ post '/test_handshake' do
   
     provider = Provider.first :provider => params[:provider]
     if provider
-      return 'Provider Already Exists: '+provider.inspect
+      return 'Provider Already Exists: '+h(provider.inspect)
     end
   
     handshake = Handshake.new :provider => params[:provider]
@@ -39,7 +44,7 @@ post '/test_handshake' do
     end
     
   ensure
-    handshake.delete
+    handshake.delete if handshake
   end
 end
 
@@ -56,11 +61,11 @@ post '/handshake/challenge' do
   if document.valid? and handshake
     return OpenProfile::Document.new(
       :headers => {:key => handshake.key, :secret => handshake.secret},
-      :body => {:provider => CONFIG[:provider][:url], :response => challenge_response, :status => 'success'}
+      :body => {:provider => [CONFIG[:provider][:url]], :response => challenge_response, :status => 'success'}
     ).encode
   else
     return OpenProfile.respond({
-      :provider => CONFIG[:provider][:url],
+      :provider => [CONFIG[:provider][:url]],
       :status => 'failure',
       :message => 'Invalid document'
     })
@@ -79,12 +84,12 @@ post '/handshake/request' do
   challenge_response = OpenProfile.sha1(document.body['secret']+':'+challenge)
   
   response = OpenProfile::Request.post_signed(url, {:key => key, :secret => secret}, {
-    :provider => CONFIG[:provider][:url],
+    :provider => [CONFIG[:provider][:url]],
     :challenge => challenge,
   })
   
   if response.valid? and response.body['response'] == challenge_response and response.body['status'] == 'success'
-    existing = Provider.first :provider => document.body['provider']
+    existing = Provider.first :provider => document.body['provider'].first
     if existing
       existing.key = key
       existing.secret = secret
@@ -92,7 +97,7 @@ post '/handshake/request' do
     else
       provider = Provider.new
       provider.key = key
-      provider.provider = document.body['provider']
+      provider.provider = document.body['provider'].first
       provider.secret = secret
       provider.save!
     end
