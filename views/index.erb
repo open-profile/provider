@@ -18,7 +18,7 @@
 <% if @me.handshakes.select {|h| h.from }.length > 0 %>
   <ul>
     <% @me.handshakes.select {|h| h.from }.each do |h| %>
-      <li><%= h.from %></li>
+      <li><%= h.from %> (Status: <%= h.status %><% if h.status != 'accepted' %>, <a href="<%= h.ui_accept_url %>">Accept</a>, <a href="<%= h.ui_deny_url %>">Deny</a><% end %>)</li>
     <% end %>
   </ul>
 <% else %>
@@ -28,7 +28,7 @@
 <% if @me.handshakes.select {|h| h.to }.length > 0 %>
   <ul>
     <% @me.handshakes.select {|h| h.to }.each do |h| %>
-      <li><%= h.to %></li>
+      <li><%= h.to %> (Status: <%= h.status %>)</li>
     <% end %>
   </ul>
 <% else %>

@@ -66,6 +66,19 @@ post '/test_profile_handshake' do
   end
 end
 
+get '/profile/:profile/handshake/:handshake/accept' do
+  @profile   = Profile.find(params[:profile])
+  @handshake = @profile.handshakes.find(params[:handshake])
+  
+  response = @handshake.accept!
+  return h(response.inspect)
+end
+get '/profile/:profile/handshake/:handshake/deny' do
+  @profile   = Profile.find(params[:profile])
+  @handshake = @profile.handshakes.find(params[:handshake])
+  
+  return h(@handshake.inspect)
+end
 
 
 
@@ -95,7 +108,7 @@ post '/handshake/challenge' do
   else
     return OpenProfile.respond({
       :provider => [CONFIG[:provider][:url]],
-      :status => 'failure',
+      :status => 'error',
       :message => 'Invalid document'
     })
   end
@@ -137,7 +150,7 @@ post '/handshake/request' do
     ).encode
   else
     return OpenProfile::Document.new(
-      :body => {:status => 'Failure', :message => 'Error performing challenge'}
+      :body => {:status => 'error', :message => 'Error performing challenge'}
     ).encode
   end
 end
@@ -149,10 +162,10 @@ post '/:uid/handshake/request' do
   #document = OpenProfile::Document.decode(request.body.read.strip)
   provider, document = Provider.decode_document(request.body.read.strip)
   
-  me = Profile.first
+  me = Profile.find_by_uid(params[:uid])
   if handshakes = me.handshakes.select {|h| h.from == document.body['profile'].first and h.provider == provider.provider } and handshakes.length > 0
     return OpenProfile::Document.new(
-      :body => {:status => 'Failure', :message => 'Request already sent'}
+      :body => {:status => 'error', :message => 'Request already sent'}
     ).encode
   end
   
@@ -173,8 +186,79 @@ post '/:uid/handshake/request' do
     ).encode
   else
     return OpenProfile::Document.new(
-      :body => {:status => 'Failure', :message => 'Error accepting request'}
+      :body => {:status => 'error', :message => 'Error receiving request'}
     ).encode
+  end
+end
+post '/:uid/handshake/accept' do
+  provider, document = Provider.decode_document(request.body.read.strip)
+  
+  @me = Profile.find_by_uid(params[:uid])
+  # Handshakes matching the request
+  inbound_handshakes = @me.handshakes.select {|h| h.to == document.body['profile'].first and h.provider == provider.provider }
+  
+  # See if the handshake has already been accepted
+  accepted_handshakes = inbound_handshakes.select {|h| h.status == 'accepted' }
+  if accepted_handshakes.length > 0
+    return OpenProfile::Document.new(:body => {:status => 'error', :message => 'Handshake already accepted', :code => 410}).encode
+  end
+  
+  # Subset of pending handshakes
+  handshakes = inbound_handshakes.select {|h| h.status == 'pending' }
+  if handshakes.length == 0
+    return OpenProfile::Document.new(:body => {:status => 'error', :message => 'Handshake request not found', :code => 404}).encode
+  end
+  
+  # Delete extra handshakes (in case any were made)
+  handshakes.slice(1, handshakes.length).each {|h| h.destroy }
+  
+  handshake = handshakes.first
+  handshake.status = 'accepted'
+  handshake.accepted_at = Time.now
+  if @me.save
+    #return OpenProfile::Document.new(
+    #  :headers => {:key => provider.key, :secret => provider.secret},
+    #  :body => {
+    #    :uid => @me.uid,
+    #    :provider => [CONFIG[:provider][:url]],
+    #    :profile => [@me.profile_url],
+    #    :status => 'success'
+    #  }
+    #).encode
+    return @me.document_for(provider, :body => {:status => 'success'}).encode
+  else
+    return OpenProfile::Document.new(:body => {:status => 'error', :message => 'Error accepting request'}).encode
+  end
+end
+# Can be used both to deny a request and cancel an existing handshake.
+post '/:uid/handshake/deny' do
+  provider, document = Provider.decode_document(request.body.read.strip)
+  
+  @me = Profile.find_by_uid(params[:uid])
+  # Handshakes matching the request
+  handshakes = @me.handshakes.select {|h| h.to == document.body['profile'].first and h.provider == provider.provider }
+  if handshakes.length == 0
+    return OpenProfile::Document.new(:body => {:status => 'error', :message => 'Handshake not found', :code => 404}).encode
+  end
+  
+  # Delete extra handshakes (in case any were made)
+  handshakes.slice(1, handshakes.length).each {|h| h.destroy }
+  
+  handshake = handshakes.first
+  handshake.status = 'denied'
+  if @me.save
+    #return OpenProfile::Document.new(
+    #  :headers => {:key => provider.key, :secret => provider.secret},
+    #  :body => {
+    #    :uid => @me.uid,
+    #    :provider => [CONFIG[:provider][:url]],
+    #    :profile => [@me.profile_url],
+    #    :status => 'success'
+    #  }
+    #).encode
+    return @me.document_for(provider, :body => {:status => 'success'}).encode
+  else
+    return OpenProfile::Document.new(:body => {:status => 'error', :message => 'Error denying handshake'}).encode
   end
 end
 
