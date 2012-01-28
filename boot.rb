@@ -14,6 +14,6 @@ APP_ENV  = ENV['RACK_ENV'] or 'development'
 require APP_ROOT+'/lib'
 
 require APP_ROOT+'/app/model'
-['handshake', 'provider'].each do |model|
+['handshake', 'provider', 'profile'].each do |model|
   require APP_ROOT+'/app/models/'+model
 end

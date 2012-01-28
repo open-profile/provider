@@ -94,14 +94,15 @@ module OpenProfile
     attr_accessor :error_response
     
     def initialize(opts = {})
-      @signature = false or opts[:signature]
+      @signature = (false or opts[:signature])
       @headers = (opts[:headers] or {})
       @body = (opts[:body] or {})
-      @valid_signature = false or opts[:valid_signature]
-      @error_response = false or opts[:error_response]
+      @valid_signature = (false or opts[:valid_signature])
+      @error_response = (false or opts[:error_response])
     end
     
     def valid?
+      return true if @error_response
       @valid_signature and !@error_response
     end
     
@@ -186,6 +187,15 @@ module OpenProfile
     #  
     #end
     
+    def self.parse_headers(header_string)
+      headers = {}
+      header_string.split(',').each do |pair|
+        parts = pair.split('=', 2)
+        headers[parts.first.to_sym] = parts.last
+      end
+      return headers
+    end
+    
     def self.post_signed(url, headers, body)
       header = 'key='+headers[:key]
       
@@ -216,11 +226,7 @@ module OpenProfile
       signature, header_string, document = signed_document.split(':', 3)
       
       body = MultiJson.decode(document)
-      headers = {}
-      header_string.split(',').each do |pair|
-        parts = pair.split('=', 2)
-        headers[parts.first.to_sym] = parts.last
-      end
+      headers = self.parse_headers(header_string)
       
       d.signature = signature
       d.headers = headers.dup
@@ -233,7 +239,28 @@ module OpenProfile
     
   end
   
-  
+  class Profile
+    def self.lookup(profile)
+=begin
+      header = 'key='+headers[:key]
+      
+      unless body.is_a? String
+        body = MultiJson.encode(body)
+      end
+      
+      document = header+':'+body
+      
+      signature = OpenProfile.sha1(headers[:secret]+':'+document)
+      signed_document = signature+':'+document
+      
+      return parse_response({:secret => headers[:secret]}, HTTParty.post(url, {:body => signed_document}))
+=end
+      body = HTTParty.get(profile)
+      d = Document.new
+      d.body = MultiJson.decode(body)
+      return d
+    end
+  end
   
   class Provider
     

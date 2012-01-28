@@ -6,3 +6,31 @@
     <input type="submit" />
   </p>
 </form>
+<h2>Test Profile Handshake</h2>
+<form action="/test_profile_handshake" method="post">
+  <p>
+    <label for="profile">Profile:</label><br />
+    <input type="text" name="profile" id="profile" /><br />
+    <input type="submit" />
+  </p>
+</form>
+<h2>Inbound Handshakes</h2>
+<% if @me.handshakes.select {|h| h.from }.length > 0 %>
+  <ul>
+    <% @me.handshakes.select {|h| h.from }.each do |h| %>
+      <li><%= h.from %></li>
+    <% end %>
+  </ul>
+<% else %>
+  <p>No handshakes!</p>
+<% end %>
+<h2>Outbound Handshakes</h2>
+<% if @me.handshakes.select {|h| h.to }.length > 0 %>
+  <ul>
+    <% @me.handshakes.select {|h| h.to }.each do |h| %>
+      <li><%= h.to %></li>
+    <% end %>
+  </ul>
+<% else %>
+  <p>No handshakes!</p>
+<% end %>

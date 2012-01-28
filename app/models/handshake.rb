@@ -30,7 +30,7 @@ class Handshake
     challenge = OpenProfile.random_alphanumeric
     
     response = OpenProfile::Request.post_signed(self.provider+'/handshake/request', self.attributes, {
-      :provider => opts[:from],
+      :provider => [opts[:from]],
       :secret => self.secret,
       :key => self.key
     })
